@@ -181,6 +181,7 @@ public:
 			if (objects[object_id]->mirror) {
 
 				// return getColor in the reflected direction, with recursion_depth+1 (recursively)
+				return getColor(ray, recursion_depth+1);
 			} // else
 
 			if (objects[object_id]->transparent) { // optional
@@ -255,6 +256,7 @@ int main() {
 			double Y = H/2 - i - 0.5;
 			double Z = -(W/(2*tan(scene.fov/2)));			
 			Vector ray_direction(X,Y,Z);
+			ray_direction.normalize();
 
 			Ray ray(scene.camera_center, ray_direction);
 
