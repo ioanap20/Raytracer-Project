@@ -92,13 +92,26 @@ public:
 		// TODO (lab 1) : compute the intersection (just true/false at the begining of lab 1, then P, t and N as well)
 		P = ray.O + t*ray.u;
 		Vector R;
-		R = P - C;
+		N = P - C;
 		double R_squared;
-		R_squared = R.norm2();
+		R_squared = N.norm2();
 		double delta;
 		delta = dot(ray.u, ray.O - C) - ((ray.O-C).norm2() - R_squared);
-		double t1 = dot(ray.u, C - ray.O) + delta;
-		double t2 = dot(ray.u, C - ray.O) - delta;
+		if (delta < 0){
+			return false;
+		}
+		double t1 = dot(ray.u, C - ray.O) + sqrt(delta);
+		double t2 = dot(ray.u, C - ray.O) - sqrt(delta);
+		if (t2 >=0){
+			t = t2;
+			return true;
+		}
+		else{
+			if(t1 >= 0){
+				t = t1;
+				return true;
+			}
+		}
 		return false;
 	}
 
@@ -135,6 +148,9 @@ public:
 
 		// TODO (lab 1): iterate through the objects and check the intersections with all of them, 
 		// and keep the closest intersection, i.e., the one if smallest positive value of t
+		for(i=0; i<= ; i++){
+			bool intersection = objects[i].intersect
+		}
 		return false;
 	}
 
@@ -224,8 +240,11 @@ int main() {
 		for (int j = 0; j < W; j++) {
 			Vector color;
 
-			// TODO (lab 1) : correct ray_direction so that it goes through each pixel (j, i)			
-			Vector ray_direction(i, j, -1);
+			// TODO (lab 1) : correct ray_direction so that it goes through each pixel (j, i)
+			double X = j - W/2 + 0.5;
+			double Y = H/2 - i - 0.5;
+			double Z = -(W/(2*tan(scene.gamma/2)));			
+			Vector ray_direction(X,Y,Z);
 
 			Ray ray(scene.camera_center, ray_direction);
 
