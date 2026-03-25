@@ -150,7 +150,7 @@ public:
 		// and keep the closest intersection, i.e., the one if smallest positive value of t
 		double min = 10000;
 		for(int i=0; i< objects.size(); i++){
-			bool intersection = intersect(ray, P, t, N, objects[i]);
+			bool intersection = objects[i]->intersect(ray, P, t, N);
 			if (intersection){
 				if (t<min){
 					min = t;
