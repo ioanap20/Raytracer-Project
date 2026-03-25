@@ -148,8 +148,15 @@ public:
 
 		// TODO (lab 1): iterate through the objects and check the intersections with all of them, 
 		// and keep the closest intersection, i.e., the one if smallest positive value of t
-		for(i=0; i<= ; i++){
-			bool intersection = objects[i].intersect
+		double min = 10000;
+		for(int i=0; i< objects.size(); i++){
+			bool intersection = intersect(ray, P, t, N, objects[i]);
+			if (intersection){
+				if (t<min){
+					min = t;
+					object_id = i;
+				}
+			}
 		}
 		return false;
 	}
@@ -159,15 +166,18 @@ public:
 	Vector getColor(const Ray& ray, int recursion_depth) {
 
 		if (recursion_depth >= max_light_bounce) return Vector(0, 0, 0);
-
 		// TODO (lab 1) : if intersect with ray, use the returned information to compute the color ; otherwise black 
 		// in lab 1, the color only includes direct lighting with shadows
-
 		Vector P, N;
 		double t;
 		int object_id;
 		if (intersect(ray, P, t, N, object_id)) {
 
+			double attenuation = 1/(4*M_PI * (light_position - P).norm2());
+			Vector material = (objects[object_id]->albedo) / M_PI;
+			double solid_angle = dot(N, (light_position-P)/(light_position - P).norm2());
+			Vector colour = attenuation * material * solid_angle;
+ 
 			if (objects[object_id]->mirror) {
 
 				// return getColor in the reflected direction, with recursion_depth+1 (recursively)
@@ -219,7 +229,7 @@ int main() {
 	scene.light_position = Vector(-10,20,40);
 	scene.light_intensity = 3E7;
 	scene.fov = 60 * M_PI / 180.;
-	scene.gamma = 1.0;    // TODO (lab 1) : play with gamma ; typically, gamma = 2.2
+	scene.gamma = 2.2;    // TODO (lab 1) : play with gamma ; typically, gamma = 2.2
 	scene.max_light_bounce = 5;
 
 	scene.addObject(&center_sphere);
@@ -243,7 +253,7 @@ int main() {
 			// TODO (lab 1) : correct ray_direction so that it goes through each pixel (j, i)
 			double X = j - W/2 + 0.5;
 			double Y = H/2 - i - 0.5;
-			double Z = -(W/(2*tan(scene.gamma/2)));			
+			double Z = -(W/(2*tan(scene.fov/2)));			
 			Vector ray_direction(X,Y,Z);
 
 			Ray ray(scene.camera_center, ray_direction);
