@@ -92,9 +92,11 @@ public:
 		// TODO (lab 1) : compute the intersection (just true/false at the begining of lab 1, then P, t and N as well)
 		P = ray.O + t*ray.u;
 		Vector R;
-		N = P - C;
+		R = P - C;
+		N = (P - C);
+		N.normalize();
 		double R_squared;
-		R_squared = N.norm2();
+		R_squared = R.norm2();
 		double delta;
 		delta = dot(ray.u, ray.O - C) - ((ray.O-C).norm2() - R_squared);
 		if (delta < 0){
@@ -148,11 +150,11 @@ public:
 
 		// TODO (lab 1): iterate through the objects and check the intersections with all of them, 
 		// and keep the closest intersection, i.e., the one if smallest positive value of t
-		double min = 10000;
+		double min = -1;
 		for(int i=0; i< objects.size(); i++){
 			bool intersection = objects[i]->intersect(ray, P, t, N);
 			if (intersection){
-				if (t<min){
+				if (min == -1 || t < min){
 					min = t;
 					object_id = i;
 				}
@@ -171,12 +173,13 @@ public:
 		Vector P, N;
 		double t;
 		int object_id;
+		Vector colour;
 		if (intersect(ray, P, t, N, object_id)) {
 
 			double attenuation = 1/(4*M_PI * (light_position - P).norm2());
 			Vector material = (objects[object_id]->albedo) / M_PI;
 			double solid_angle = dot(N, (light_position-P)/(light_position - P).norm2());
-			Vector colour = attenuation * material * solid_angle;
+			colour = attenuation * material * solid_angle;
  
 			if (objects[object_id]->mirror) {
 
@@ -194,9 +197,8 @@ public:
 
 
 			// TODO (lab 2) : add indirect lighting component with a recursive call
+			return colour;
 		}
-
-		
 
 		return Vector(0, 0, 0);
 	}
@@ -230,7 +232,7 @@ int main() {
 	scene.light_position = Vector(-10,20,40);
 	scene.light_intensity = 3E7;
 	scene.fov = 60 * M_PI / 180.;
-	scene.gamma = 2.2;    // TODO (lab 1) : play with gamma ; typically, gamma = 2.2
+	scene.gamma = 1.0;    // TODO (lab 1) : play with gamma ; typically, gamma = 2.2
 	scene.max_light_bounce = 5;
 
 	scene.addObject(&center_sphere);
