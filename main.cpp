@@ -90,15 +90,14 @@ public:
 	// and the unit normal N
 	bool intersect(const Ray& ray, Vector& P, double &t, Vector& N) const {
 		// TODO (lab 1) : compute the intersection (just true/false at the begining of lab 1, then P, t and N as well)
-		P = ray.O + t*ray.u;
 		Vector R;
+		double R_squared, delta;		
+		P = ray.O + t*ray.u;
 		R = P - C;
 		N = (P - C);
 		N.normalize();
-		double R_squared;
 		R_squared = R.norm2();
-		double delta;
-		delta = dot(ray.u, ray.O - C) - ((ray.O-C).norm2() - R_squared);
+		delta = dot(ray.u, ray.O - C) * dot(ray.u, ray.O - C) - ((ray.O-C).norm2() - R_squared);
 		if (delta < 0){
 			return false;
 		}
