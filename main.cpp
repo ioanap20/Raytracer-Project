@@ -89,7 +89,16 @@ public:
 	// t>=0 the distance between the ray origin and P (i.e., the parameter along the ray)
 	// and the unit normal N
 	bool intersect(const Ray& ray, Vector& P, double &t, Vector& N) const {
-		 // TODO (lab 1) : compute the intersection (just true/false at the begining of lab 1, then P, t and N as well)
+		// TODO (lab 1) : compute the intersection (just true/false at the begining of lab 1, then P, t and N as well)
+		P = ray.O + t*ray.u;
+		Vector R;
+		R = P - C;
+		double R_squared;
+		R_squared = R.norm2();
+		double delta;
+		delta = dot(ray.u, ray.O - C) - ((ray.O-C).norm2() - R_squared);
+		double t1 = dot(ray.u, C - ray.O) + delta;
+		double t2 = dot(ray.u, C - ray.O) - delta;
 		return false;
 	}
 
@@ -126,7 +135,6 @@ public:
 
 		// TODO (lab 1): iterate through the objects and check the intersections with all of them, 
 		// and keep the closest intersection, i.e., the one if smallest positive value of t
-
 		return false;
 	}
 
@@ -191,7 +199,7 @@ int main() {
 	Sphere floor(Vector(0, -1000, 0), 990, Vector(0.6, 0.5, 0.7));
 
 	Scene scene;
-	scene.camera_center = Vector(0, 0, 0);
+	scene.camera_center = Vector(0, 0, 55);
 	scene.light_position = Vector(-10,20,40);
 	scene.light_intensity = 3E7;
 	scene.fov = 60 * M_PI / 180.;
@@ -217,7 +225,7 @@ int main() {
 			Vector color;
 
 			// TODO (lab 1) : correct ray_direction so that it goes through each pixel (j, i)			
-			Vector ray_direction(0., 0., -1);
+			Vector ray_direction(i, j, -1);
 
 			Ray ray(scene.camera_center, ray_direction);
 
