@@ -90,28 +90,29 @@ public:
 	// and the unit normal N
 	bool intersect(const Ray& ray, Vector& P, double &t, Vector& N) const {
 		// TODO (lab 1) : compute the intersection (just true/false at the begining of lab 1, then P, t and N as well)
-		Vector R;
-		double R_squared, delta;		
-		P = ray.O + t*ray.u;
-		R = P - C;
-		N = (P - C);
-		N.normalize();
-		R_squared = R.norm2();
-		delta = dot(ray.u, ray.O - C) * dot(ray.u, ray.O - C) - ((ray.O-C).norm2() - R_squared);
+		double R_squared = R*R, delta;	
+		delta = dot(ray.u, ray.O - C) * dot(ray.u, ray.O - C) - ((ray.O-C).norm2() - R_squared);	
 		if (delta < 0){
 			return false;
 		}
 		double t1 = dot(ray.u, C - ray.O) + sqrt(delta);
 		double t2 = dot(ray.u, C - ray.O) - sqrt(delta);
-		if (t2 >=0){
+		bool ok = false;
+		if(t2 >= 0){
 			t = t2;
-			return true;
+			ok=true;
 		}
 		else{
-			if(t1 >= 0){
+			if(t1>=0){
 				t = t1;
-				return true;
+				ok=true;
 			}
+		}
+		if (ok){
+			P = ray.O + t * ray.u;
+			N = P-C;
+			N.normalize();
+			return true;
 		}
 		return false;
 	}
@@ -150,16 +151,24 @@ public:
 		// TODO (lab 1): iterate through the objects and check the intersections with all of them, 
 		// and keep the closest intersection, i.e., the one if smallest positive value of t
 		double min = -1;
+		bool is_intersection = false;
 		for(int i=0; i< objects.size(); i++){
-			bool intersection = objects[i]->intersect(ray, P, t, N);
+			Vector P_tmp, N_tmp;
+			double t_tmp;
+			double min_tmp;
+			bool intersection = objects[i]->intersect(ray, P_tmp, t_tmp, N_tmp);
 			if (intersection){
-				if (min == -1 || t < min){
-					min = t;
+				is_intersection = true;
+				if (min_tmp == -1 || t_tmp < min){
+					min_tmp = t_tmp;
+					P = P_tmp;
+					N = N_tmp;
+					t = t_tmp;
 					object_id = i;
 				}
 			}
 		}
-		return false;
+		return is_intersection;
 	}
 
 
@@ -175,7 +184,7 @@ public:
 		Vector colour;
 		if (intersect(ray, P, t, N, object_id)) {
 
-			double attenuation = 1/(4*M_PI * (light_position - P).norm2());
+			double attenuation = 1/(4 * M_PI * (light_position - P).norm2());
 			Vector material = (objects[object_id]->albedo) / M_PI;
 			double solid_angle = dot(N, (light_position-P)/(light_position - P).norm2());
 			colour = attenuation * material * solid_angle;
