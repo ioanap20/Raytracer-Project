@@ -90,7 +90,8 @@ public:
 	// and the unit normal N
 	bool intersect(const Ray& ray, Vector& P, double &t, Vector& N) const {
 		// TODO (lab 1) : compute the intersection (just true/false at the begining of lab 1, then P, t and N as well)
-		double R_squared = R*R, delta;	
+		double R_squared = sqr(R);
+		double delta;	
 		delta = dot(ray.u, ray.O - C) * dot(ray.u, ray.O - C) - ((ray.O-C).norm2() - R_squared);	
 		if (delta < 0){
 			return false;
@@ -102,19 +103,16 @@ public:
 			t = t2;
 			ok=true;
 		}
-		else{
-			if(t1>=0){
+		else if(t1>=0){
 				t = t1;
-				ok=true;
 			}
-		}
-		if (ok){
-			P = ray.O + t * ray.u;
-			N = P-C;
-			N.normalize();
-			return true;
-		}
-		return false;
+		else{return false;}
+		
+		P = ray.O + t * ray.u;
+		N = P-C;
+		N.normalize();
+		return true;
+
 	}
 
 	double R;
@@ -125,7 +123,7 @@ public:
 // I will provide you with an obj mesh loader (labs 3 and 4)
 class TriangleMesh : public Object {
 public:
-	TriangleMesh(const Vector& albedo, bool mirror = false, bool transparent = false) : ::Object(albedo, mirror, transparent) {};
+	TriangleMesh(const Vector& albedo, bool mirror = true, bool transparent = false) : ::Object(albedo, mirror, transparent) {};
 
 	bool intersect(const Ray& ray, Vector& P, double& t, Vector& N) const {
 		// TODO (labs 3 and 4)
@@ -150,17 +148,15 @@ public:
 
 		// TODO (lab 1): iterate through the objects and check the intersections with all of them, 
 		// and keep the closest intersection, i.e., the one if smallest positive value of t
-		double min = -1;
+		double min = -1, t_tmp;
 		bool is_intersection = false;
-		for(int i=0; i< objects.size(); i++){
+		for(int i=0; i < objects.size(); i++){
 			Vector P_tmp, N_tmp;
-			double t_tmp;
-			double min_tmp;
 			bool intersection = objects[i]->intersect(ray, P_tmp, t_tmp, N_tmp);
 			if (intersection){
-				is_intersection = true;
-				if (min_tmp == -1 || t_tmp < min){
-					min_tmp = t_tmp;
+				if (min == -1 || t_tmp < min){
+					is_intersection = true;
+					min = t_tmp;
 					P = P_tmp;
 					N = N_tmp;
 					t = t_tmp;
@@ -178,21 +174,25 @@ public:
 		if (recursion_depth >= max_light_bounce) return Vector(0, 0, 0);
 		// TODO (lab 1) : if intersect with ray, use the returned information to compute the color ; otherwise black 
 		// in lab 1, the color only includes direct lighting with shadows
-		Vector P, N;
-		double t;
+		Vector P, N, light;
+		double t, dist;
 		int object_id;
 		Vector colour;
 		if (intersect(ray, P, t, N, object_id)) {
-
-			double attenuation = 1/(4 * M_PI * (light_position - P).norm2());
+			Vector light = light_position - P;
+			dist = light.norm2();
+			light.normalize();
+			double attenuation = light_intensity/(4 * M_PI * dist);
 			Vector material = (objects[object_id]->albedo) / M_PI;
-			double solid_angle = dot(N, (light_position-P)/(light_position - P).norm2());
+			double solid_angle = dot(N, light);
 			colour = attenuation * material * solid_angle;
  
 			if (objects[object_id]->mirror) {
-
 				// return getColor in the reflected direction, with recursion_depth+1 (recursively)
-				return getColor(ray, recursion_depth+1);
+				Vector reflected = ray.u - 2*dot(ray.u, N) * N;
+				reflected.normalize();
+				Ray reflected_ray(P + 1e-4 *N, reflected);
+				return getColor(reflected_ray, recursion_depth+1);
 			} // else
 
 			if (objects[object_id]->transparent) { // optional
@@ -201,7 +201,32 @@ public:
 			} // else
 
 			// test if there is a shadow by sending a new ray
-			// if there is no shadow, compute the formula with dot products etc.
+		
+			Vector light1 = light_position - P;
+			Ray new_ray(P + 1e-4*N, light);
+			light1.normalize();
+
+			Vector P_tmp, N_tmp;
+			double t_tmp;
+			int object_id;
+
+			bool is_intersection = intersect(new_ray, P_tmp, t_tmp, N_tmp, object_id);
+
+			if (is_intersection){
+				Vector P_prime = P_tmp;
+				if((P_prime - P).norm2() <= ((light_position - P).norm2())){
+					return Vector(0, 0, 0);
+				}
+			}// if there is no shadow, compute the formula with dot products etc.
+			else{
+				Vector light2 = light_position - P;
+				dist = light2.norm2();
+				light2.normalize();
+				double attenuation = light_intensity/(4 * M_PI * dist);
+				Vector material = (objects[object_id]->albedo) / M_PI;
+				double solid_angle = dot(N, light);
+				colour = attenuation * material * solid_angle;
+			}
 
 
 			// TODO (lab 2) : add indirect lighting component with a recursive call
@@ -227,7 +252,7 @@ int main() {
 		engine[i].seed(i);
 	}
 
-	Sphere center_sphere(Vector(0, 0, 0), 10., Vector(0.8, 0.8, 0.8));
+	Sphere center_sphere(Vector(0, 0, 0), 10., Vector(0.8, 0.8, 0.8), true);
 	Sphere wall_left(Vector(-1000, 0, 0), 940, Vector(0.5, 0.8, 0.1));
 	Sphere wall_right(Vector(1000, 0, 0), 940, Vector(0.9, 0.2, 0.3));
 	Sphere wall_front(Vector(0, 0, -1000), 940, Vector(0.1, 0.6, 0.7));
@@ -240,23 +265,24 @@ int main() {
 	scene.light_position = Vector(-10,20,40);
 	scene.light_intensity = 3E7;
 	scene.fov = 60 * M_PI / 180.;
-	scene.gamma = 1.0;    // TODO (lab 1) : play with gamma ; typically, gamma = 2.2
+	scene.gamma = 2.2;    // TODO (lab 1) : play with gamma ; typically, gamma = 2.2
 	scene.max_light_bounce = 5;
 
 	scene.addObject(&center_sphere);
 
-	/*
+	
 	scene.addObject(&wall_left);
 	scene.addObject(&wall_right);
 	scene.addObject(&wall_front);
 	scene.addObject(&wall_behind);
 	scene.addObject(&ceiling);
 	scene.addObject(&floor);
-	*/
+	
 
 	std::vector<unsigned char> image(W * H * 3, 0);
 
 #pragma omp parallel for schedule(dynamic, 1)
+	double sum = 0;
 	for (int i = 0; i < H; i++) {
 		for (int j = 0; j < W; j++) {
 			Vector color;
@@ -271,6 +297,12 @@ int main() {
 			Ray ray(scene.camera_center, ray_direction);
 
 			// TODO (lab 2) : add Monte Carlo / averaging of random ray contributions here
+
+			double r1= uniform ( engine );
+			double r2= uniform ( engine );
+			double x = sqrt (-2 * log ( r1 ) ) * cos (2 * M_PI * r2);
+			double y= sqrt (-2 * log ( r1 ) ) * sin (2 * M_PI * r2 );
+			
 			// TODO (lab 2) : add antialiasing by altering the ray_direction here
 			// TODO (lab 2) : add depth of field effect by altering the ray origin (and direction) here
 
@@ -281,6 +313,8 @@ int main() {
 			image[(i * W + j) * 3 + 2] = std::min(255., std::max(0., 255. * std::pow(color[2] / 255., 1. / scene.gamma)));
 		}
 	}
+
+
 	stbi_write_png("image.png", W, H, 3, &image[0], 0);
 
 	return 0;
