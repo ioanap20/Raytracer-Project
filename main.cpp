@@ -6,6 +6,7 @@
 #include <map>
 #include <string>
 #include <fstream>
+#include <iostream>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
@@ -149,6 +150,7 @@ public:
 		for (int i = 0; i < vertices.size(); i++) {
 			vertices[i] = vertices[i] * s + t;
 		}
+		buildbox();
 	}
 
 
@@ -267,26 +269,107 @@ public:
 				}
 			}
 		}
+		buildbox();
 	}
 	
+	/*Vector compute_diag();
+	int get_longest();
+	Vector compute_barycenter();
 
+	BBox compute_bbox(int starting_triangle, int end_triangle){
+
+	}*/
+
+	void buildbox(){
+		bbox_min = vertices[0];
+		bbox_max = vertices[0];
+
+		for(int i=0; i < vertices.size(); i++){
+			for(int j=0; j<3; j++){
+
+				bbox_min[j] = std::min(bbox_min[j], vertices[i][j]);
+				bbox_max[j] = std::max(bbox_max[j], vertices[i][j]);
+
+			}
+		}
+	}
+
+	bool intersect_box(const Ray& ray) const{
+		double t_min = 0.0;
+		double t_max = 1e30;
+
+		for(int i=0; i<3; i++){
+			double origin = ray.O[i];
+			double direction = ray.u[i];
+
+			double t_temp1 = (bbox_min[i] - origin) / direction;
+			double t_temp2 = (bbox_max[i] - origin) / direction;
+
+			if(t_temp1 > t_temp2){
+				std::swap(t_temp1, t_temp2);
+			}
+
+			t_min = std::max(t_min, t_temp1);
+			t_max = std::min(t_max, t_temp2);
+			
+			if(t_min > t_max){
+				return false;
+			}
+		}
+		return true;
+	}
 	
 	// TODO ray-mesh intersection (labs 3 and 4)
 	bool intersect(const Ray& ray, Vector& P, double& t, Vector& N) const {
-		
+
+		if(!intersect_box(ray)){
+			return false;
+		}
+
+		bool hit = false;
+		double t_min = 1e30;
 		// lab 3 : for each triangle, compute the ray-triangle intersection with Moller-Trumbore algorithm
 		for(int i=0; i < indices.size(); i++){
-			TriangleIndices t = indices[i];
-			TriangleIndices A = t.vtx[0];
-			TriangleIndices B = t.vtx[1];
-			TriangleIndices C = t.vtx[2];
+			TriangleIndices tri = indices[i];
+			const Vector& A = vertices[tri.vtx[0]];
+			const Vector& B = vertices[tri.vtx[1]];
+			const Vector& C = vertices[tri.vtx[2]];
 
+			Vector e1 = B - A;
+			Vector e2 = C - A;
+			Vector AO = A - ray.O;
+			Vector N_geom = cross(e1, e2);
+	
+			double denom = dot(ray.u, N_geom);
+			if(std::abs(denom) < 1e-12){
+				continue;
+			}
+			double beta = dot(e2, cross(AO, ray.u)) / denom;
+			double gamma = - dot(e1, cross(AO, ray.u)) / denom;
+			double alpha = 1 - beta - gamma;
+			if(beta < 0 || alpha < 0 || gamma < 0 || alpha > 1 || gamma > 1 || beta > 1){
+				continue;
+			}
+			double t_temp = dot(AO, N_geom) / denom;
+			if(t_temp < 1e-4){
+				continue;
+			}
+			if(t_temp < t_min){
+				t_min= t_temp;
+				t = t_temp;
+
+				P = ray.O + t * ray.u;
+				hit = true;
+
+				N = alpha * normals[tri.n[0]] + beta * normals[tri.n[1]] + gamma * normals[tri.n[2]];
+				//N = N_geom;
+				N.normalize();
+
+			}
 		}
+		return hit;
 		// lab 3 : once done, speed it up by first checking against the mesh bounding box
 		// lab 4 : recursively apply the bounding-box test from a BVH datastructure
-
-
-		return false;
 	}
 
 
@@ -295,6 +378,18 @@ public:
 	std::vector<Vector> normals;
 	std::vector<Vector> uvs;
 	std::vector<Vector> vertexcolors;
+
+	Vector bbox_min, bbox_max;
+	bool bbox = false;
+
+	struct BBox{
+		int starting_triangle;
+		int end_triangle;
+
+		Vector bbmin;
+		Vector bbmax;
+	};
+
 };
 
 
@@ -417,9 +512,17 @@ Vector random_cos(const Vector N){
 					shadow = true;
 				}
 			}// if there is no shadow, compute the formula with dot products etc.
-
+			double vizibility = 1;
+			// Sacha helped me with the shadow
 			if(shadow){
-				return Vector(0, 0, 0);
+				//vizibility = 0;
+				Vector rand_vector = random_cos(N);
+				Ray random_ray(P + 1e-4 * N, rand_vector);
+				Vector albedo = objects[object_id]->albedo;
+				Vector color1 = getColor (random_ray, recursion_depth + 1);
+				Vector product(albedo[0] * color1[0], albedo[1] * color1[1], albedo[2] * color1[2]);
+				return product;
+				//return Vector(0, 0, 0);
 			}
 
 			else{
@@ -484,11 +587,15 @@ int main() {
 	scene.light_intensity = 3E7;
 	scene.fov = 60 * M_PI / 180.;
 	scene.gamma = 2.2;    // TODO (lab 1) : play with gamma ; typically, gamma = 2.2
-	scene.max_light_bounce = 5;
+	scene.max_light_bounce = 2;
 
-	scene.addObject(&center_sphere);
+	//scene.addObject(&center_sphere);
 
-	
+	TriangleMesh mesh(Vector(0.8, 0.8, 0.8), false);
+	mesh.readOBJ("cat.obj");
+	mesh.scale_translate(0.6, Vector(0, -10, 0));
+
+	scene.addObject(&mesh);
 	scene.addObject(&wall_left);
 	scene.addObject(&wall_right);
 	scene.addObject(&wall_front);
@@ -551,3 +658,8 @@ int main() {
 
 	return 0;
 }
+
+/*clang++ -Xpreprocessor -fopenmp \
+  -I/opt/homebrew/opt/libomp/include \
+  main.cpp \
+  -L/opt/homebrew/opt/libomp/lib -lomp*/
